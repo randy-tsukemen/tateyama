@@ -1,0 +1,39 @@
+name: 立山監控五分鐘觸發器
+run-name: 五分鐘觸發器 · ${{ github.event_name }}
+on:
+  workflow_dispatch:
+    inputs:
+      test_notification:
+        description: "Dispatch one bot-triggered notification test, then stop"
+        type: boolean
+        default: false
+      next_at:
+        description: 'Internal continuation timestamp; leave empty when starting manually'
+        default: ''
+        type: string
+      cycles:
+        description: 'Checks before handing off to the next controller (1–12)'
+        default: '12'
+        type: string
+  # Best-effort recovery if a controller is interrupted; not the primary timer.
+  schedule:
+    - cron: '17 * * * *'
+permissions:
+  contents: read
+  actions: write
+concurrency:
+  group: lodging-dispatcher
+  cancel-in-progress: false
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dispatch monitor every five minutes and hand off
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DISPATCH_CYCLES: ${{ inputs.cycles || '12' }}
+          NOTIFICATION_TEST: ${{ inputs.test_notification }}
+          NEXT_AT: ${{ inputs.next_at }}
+        run: python3 -u scripts/dispatch_monitor.py
