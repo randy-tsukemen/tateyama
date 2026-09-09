@@ -1,0 +1,25 @@
+name: 立山 10月10日 空床監控
+on:
+  schedule:
+    # Every ten minutes, offset from the busiest top of the hour (UTC).
+    - cron: '3,13,23,33,43,53 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: lodging-availability
+  cancel-in-progress: false
+jobs:
+  check:
+    name: 檢查空床（發現空位或監控異常時失敗）
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: 檢查 2026-10-10 空位
+        run: python monitor.py --date 2026-10-10
