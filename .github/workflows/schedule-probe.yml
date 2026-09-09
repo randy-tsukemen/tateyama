@@ -1,0 +1,28 @@
+name: Schedule diagnostic
+on:
+  schedule:
+    - cron: '2-57/5 * * * *'
+  push:
+    branches: [main]
+    paths: [.github/workflows/schedule-probe.yml]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - name: Record trigger evidence
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_SCHEDULE: ${{ github.event.schedule }}
+          ACTOR: ${{ github.actor }}
+          COMMIT: ${{ github.sha }}
+        run: |
+          {
+            echo "Event: $EVENT_NAME"
+            echo "Schedule: $EVENT_SCHEDULE"
+            echo "Actor: $ACTOR"
+            echo "Commit: $COMMIT"
+            date -u
+          } | tee -a "$GITHUB_STEP_SUMMARY"
