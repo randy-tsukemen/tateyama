@@ -1,8 +1,8 @@
 name: 立山 10月10日 空床監控
 on:
   schedule:
-    # Every ten minutes, offset from the busiest top of the hour (UTC).
-    - cron: '3,13,23,33,43,53 * * * *'
+    # Every five minutes (UTC); GitHub may delay scheduled runs.
+    - cron: '*/5 * * * *'
   workflow_dispatch:
 permissions:
   contents: read
