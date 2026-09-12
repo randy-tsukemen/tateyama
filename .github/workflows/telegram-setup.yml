@@ -1,0 +1,34 @@
+name: Telegram private chat setup
+on:
+  workflow_dispatch:
+    inputs:
+      public_key:
+        description: RSA public key for encrypted chat ID transfer
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install -r requirements.txt
+      - name: Discover private chat without publishing personal information
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          PUBLIC_KEY: ${{ inputs.public_key }}
+        run: |
+          python3 - <<'PY'
+          import base64, os, subprocess
+          from pathlib import Path
+          from telegram_notify import api, discover_chat
+          chat = discover_chat(api('getUpdates', {'timeout': 0, 'allowed_updates': ['message']}))
+          print('::add-mask::' + chat)
+          Path('/tmp/chat-public.pem').write_text(os.environ['PUBLIC_KEY'])
+          encrypted = subprocess.run(['openssl', 'pkeyutl', '-encrypt', '-pubin',
+              '-inkey', '/tmp/chat-public.pem', '-pkeyopt', 'rsa_padding_mode:oaep'],
+              input=chat.encode(), capture_output=True, check=True).stdout
+          print('CHAT_CIPHERTEXT=' + base64.b64encode(encrypted).decode())
+          PY
