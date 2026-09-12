@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       test_notification:
-        description: "Send a clearly labeled failure to test email notifications"
+        description: "Send Telegram test and clearly labeled failure for email testing"
         type: boolean
         default: false
 permissions:
@@ -17,7 +17,20 @@ jobs:
     name: 通知測試（非空位通知）
     runs-on: ubuntu-latest
     steps:
-      - run: |
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Send Telegram test
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python telegram_notify.py --test
+      - name: Intentional failure for email test
+        if: always()
+        run: |
           echo "::error title=通知測試（非空位通知）::這是 Email 通知測試，不代表有空位。"
           exit 1
   check:
@@ -33,4 +46,12 @@ jobs:
           cache: pip
       - run: pip install -r requirements.txt
       - name: 檢查 2026-10-10 空位
+        id: availability
         run: python monitor.py --date 2026-10-10
+      - name: Send vacancy or error directly to Telegram
+        if: ${{ always() && !cancelled() }}
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          CHECK_OUTCOME: ${{ steps.availability.outcome }}
+        run: python telegram_notify.py

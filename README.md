@@ -25,6 +25,21 @@
 有空位以 exit code 1 讓監控失敗；網站讀取異常以 exit code 2 失敗，摘要明確區分。
 每次仍有空位都會失敗，不去除重複通知。無空位則成功。
 
+## Telegram 通知（主要通知管道）
+
+免費 Telegram Bot 直接傳送通知，不依賴 GitHub 失敗信件的通知規則。
+GitHub Secrets 需有 `TELEGRAM_BOT_TOKEN` 與 `TELEGRAM_CHAT_ID`。
+
+- 有空位：傳送入住日期、飯店、房型、網站狀態及訂房連結。每次五分鐘檢查仍有空位就再提醒。
+- 額滿：不傳訊息。
+- 網站查詢異常：傳送「監控異常（不是空位通知）」。
+- API 限流、暫時性錯誤及網路失敗最多嘗試三次；重試可能造成重複訊息。
+- API 接受訊息不代表手機已顯示／已讀。請開啟 Telegram 通知，勿將 Bot 靜音。
+- 手動啟動空床監控並勾選 `test_notification`，會先傳 Telegram 測試，再刻意失敗以測試 Email。
+- 初次設定 workflow 只接受唯一的私人 `/start` 對話；Chat ID 經 RSA 加密後才輸出，
+  在本機解密並存入 Secret，Token 與 Chat ID 不公開。設定完成後停用此 workflow。
+- 若觸發器／GitHub 平台完全停擺，通知程式也不會執行；本方案不提供獨立心跳監控。
+
 ## Email 設定
 
 在 https://github.com/settings/notifications 的 Actions 區域啟用 Email，並選擇只通知失敗的工作。
