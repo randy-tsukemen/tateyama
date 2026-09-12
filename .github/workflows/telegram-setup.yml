@@ -24,7 +24,17 @@ jobs:
           import base64, os, subprocess
           from pathlib import Path
           from telegram_notify import api, discover_chat
-          chat = discover_chat(api('getUpdates', {'timeout': 0, 'allowed_updates': ['message']}))
+          identity = api('getMe', {})
+          webhook = api('getWebhookInfo', {})
+          updates = api('getUpdates', {'timeout': 0, 'allowed_updates': ['message']})
+          print('Bot username: @' + identity['username'])
+          print('Webhook configured: ' + str(bool(webhook.get('url'))).lower())
+          print('Pending update count: ' + str(len(updates)))
+          print('Private /start count: ' + str(sum(
+              1 for update in updates
+              if update.get('message', {}).get('chat', {}).get('type') == 'private'
+              and update.get('message', {}).get('text', '').split(' ')[0] == '/start')))
+          chat = discover_chat(updates)
           print('::add-mask::' + chat)
           Path('/tmp/chat-public.pem').write_text(os.environ['PUBLIC_KEY'])
           encrypted = subprocess.run(['openssl', 'pkeyutl', '-encrypt', '-pubin',
