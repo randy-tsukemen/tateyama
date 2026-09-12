@@ -20,17 +20,17 @@ class TelegramTests(unittest.TestCase):
         self.assertEqual(len(t.messages(report)), 2)
         self.assertIn('https://example.com', t.messages(report)[0])
 
-    @patch.dict(t.os.environ, {'TELEGRAM_BOT_TOKEN': 'super-secret'})
+    @patch.dict(t.os.environ, {'TELEGRAM_BOT_TOKEN': '123:super-secret'})
     @patch.object(t.time, 'sleep')
     @patch.object(t.requests, 'post')
     def test_network_error_redacted_and_retried(self, post, sleep):
-        post.side_effect = requests.ConnectionError('https://api.telegram.org/botsuper-secret/sendMessage')
+        post.side_effect = requests.ConnectionError('https://api.telegram.org/bot123:super-secret/sendMessage')
         with self.assertRaises(RuntimeError) as error:
             t.api('sendMessage', {})
-        self.assertNotIn('super-secret', str(error.exception))
+        self.assertNotIn('123:super-secret', str(error.exception))
         self.assertEqual(post.call_count, 3)
 
-    @patch.dict(t.os.environ, {'TELEGRAM_BOT_TOKEN': 'secret'})
+    @patch.dict(t.os.environ, {'TELEGRAM_BOT_TOKEN': '123:secret'})
     @patch.object(t.time, 'sleep')
     @patch.object(t.requests, 'post')
     def test_rate_limit_then_success(self, post, sleep):

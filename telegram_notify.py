@@ -2,15 +2,18 @@
 import argparse
 import json
 import os
+import re
 from pathlib import Path
 import time
 import requests
 
 
 def api(method, payload, attempts=3):
-    token = os.environ.get('TELEGRAM_BOT_TOKEN')
+    token = os.environ.get('TELEGRAM_BOT_TOKEN', '').strip()
     if not token:
         raise RuntimeError('Missing TELEGRAM_BOT_TOKEN secret')
+    if not re.fullmatch(r'[0-9]+:[A-Za-z0-9_-]+', token):
+        raise RuntimeError('TELEGRAM_BOT_TOKEN has invalid format; store only the complete numeric-ID:token value from BotFather')
     for attempt in range(attempts):
         delay = 2 ** (attempt + 1)
         try:
