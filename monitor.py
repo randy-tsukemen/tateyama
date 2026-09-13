@@ -18,6 +18,7 @@ RAICHO = 'https://www.tenawan.ne.jp/lodgment/rec/007/602/pcr.asp'
 MIKURI = 'https://d-reserve.jp/GSEA002F01400/GSEA002A01'
 PLANS = [('PL00008095', 'RM00003893'), ('PL00008151', 'RM00003906'),
          ('PL00044720', 'RM00013017')]
+DEFAULT_DATES = (date(2026, 10, 10), date(2026, 10, 11))
 
 
 def mikuri_url(target, plan, room):
@@ -92,14 +93,51 @@ def exit_code(results, errors):
     return 1 if any(r['available'] for r in results) else 2 if errors else 0
 
 
+def add_date(rows, target):
+    for row in rows:
+        row['date'] = str(target)
+    return rows
+
+
+def check_dates(session, targets):
+    """Return normalized results and errors for every active target date."""
+    results, errors = [], []
+    try:
+        response = session.get(RAICHO, timeout=(15, 45))
+        response.raise_for_status()
+        raicho_html = response.content.decode('cp932')
+    except Exception as exc:
+        for target in targets:
+            errors.append(f'{target} 雷鳥莊：{exc}')
+    else:
+        for target in targets:
+            try:
+                results.extend(add_date(parse_raicho(raicho_html, target), target))
+            except Exception as exc:
+                errors.append(f'{target} 雷鳥莊：{exc}')
+
+    for target in targets:
+        for plan, room in PLANS:
+            try:
+                response = session.get(mikuri_url(target, plan, room), timeout=(15, 45))
+                response.raise_for_status()
+                row = parse_mikuri(response.content.decode('utf-8'), target, plan, room)
+                results.extend(add_date([row], target))
+            except Exception as exc:
+                errors.append(f'{target} みくりが池温泉 {plan}：{exc}')
+    return results, errors
+
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--date', default='2026-10-10', type=date.fromisoformat)
+    parser.add_argument('--date', action='append', dest='dates', type=date.fromisoformat,
+                        help='check-in date; repeat to monitor more than one date')
     args = parser.parse_args()
-    target = args.date
+    targets = sorted(set(args.dates or DEFAULT_DATES))
     now = datetime.now(ZoneInfo('Asia/Tokyo'))
-    if now.date() > target:
-        print('入住日期已過，停止查詢。請停用 workflow 以停止排程。')
+    targets = [target for target in targets if now.date() <= target]
+    if not targets:
+        print('所有入住日期皆已過，停止查詢。請停用 workflow 以停止排程。')
         return 0
     session = requests.Session()
     session.headers.update({'User-Agent': 'TateyamaAvailabilityMonitor/1.0',
@@ -107,33 +145,27 @@ def main():
     session.mount('https://', HTTPAdapter(max_retries=Retry(
         total=2, backoff_factor=2, status_forcelist=[429, 500, 502, 503, 504],
         allowed_methods=['GET'])))
-    results, errors = [], []
-    checks = [('雷鳥莊', RAICHO, 'cp932', lambda h: parse_raicho(h, target))]
-    for plan, room in PLANS:
-        checks.append((f'みくりが池温泉 {plan}', mikuri_url(target, plan, room), 'utf-8',
-                       lambda h, p=plan, r=room: [parse_mikuri(h, target, p, r)]))
-    for name, url, encoding, parse in checks:
-        try:
-            response = session.get(url, timeout=(15, 45))
-            response.raise_for_status()
-            results.extend(parse(response.content.decode(encoding)))
-        except Exception as exc:
-            errors.append(f'{name}: {exc}')
+    results, errors = check_dates(session, targets)
     code = exit_code(results, errors)
     title = '發現空位' if code == 1 else '監控異常' if code == 2 else '目前沒有空位'
-    lines = [f'# {target} 立山住宿：{title}', f'檢查時間：{now.isoformat()}',
+    date_label = '、'.join(map(str, targets))
+    lines = [f'# {date_label} 立山住宿：{title}', f'檢查時間：{now.isoformat()}',
              '1 位成人，入住 1 晚。雷鳥莊包含所有房型，個室仍需確認人數限制。', '']
     for r in results:
-        lines.append(f"- {'有空位' if r['available'] else '無可訂空位'}：{r['hotel']} / {r['room']} — {r['status']} [訂房頁]({r['url']})")
+        lines.append(f"- {r['date']} {'有空位' if r['available'] else '無可訂空位'}：{r['hotel']} / {r['room']} — {r['status']} [訂房頁]({r['url']})")
         if r['available']:
-            print(f"::error title=發現空位::{target} {r['hotel']} {r['room']} {r['status']} {r['url']}")
+            print(f"::error title=發現空位::{r['date']} {r['hotel']} {r['room']} {r['status']} {r['url']}")
     for error in errors:
         lines.append(f'- 監控異常：{error}')
         print(f'::error title=監控異常（非空位通知）::{error}')
     report = '\n'.join(lines) + '\n'
     print(report)
     Path('results.json').write_text(json.dumps(dict(
-        date=str(target), checked_at=now.isoformat(), results=results, errors=errors),
+        dates=list(map(str, targets)), queried_at=now.isoformat(),
+        query={'adults': 1, 'nights': 1, 'hotels': ['雷鳥莊', 'みくりが池温泉']},
+        results=results, errors=errors,
+        limitations=['空位是查詢當下的網站狀態，不代表保留或完成訂房。',
+                     '雷鳥莊個室及雙人房仍需在訂房頁確認 1 人入住限制。']),
         ensure_ascii=False, indent=2), encoding='utf-8')
     if os.environ.get('GITHUB_STEP_SUMMARY'):
         with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as f:

@@ -12,13 +12,15 @@ class TelegramTests(unittest.TestCase):
                 t.discover_chat(invalid)
 
     def test_quiet_when_full_and_distinct_errors(self):
-        report = {'date': '2026-10-10', 'results': [], 'errors': []}
+        report = {'dates': ['2026-10-10', '2026-10-11'], 'results': [], 'errors': []}
         self.assertEqual(t.messages(report), [])
         report['errors'] = ['timeout']
         self.assertIn('不是空位通知', t.messages(report)[0])
-        report['results'] = [{'available': True, 'hotel': '雷鳥莊', 'room': '相部屋', 'status': '1室', 'url': 'https://example.com'}]
+        report['results'] = [{'date': '2026-10-11', 'available': True, 'hotel': '雷鳥莊',
+                              'room': '相部屋', 'status': '1室', 'url': 'https://example.com'}]
         self.assertEqual(len(t.messages(report)), 2)
         self.assertIn('https://example.com', t.messages(report)[0])
+        self.assertIn('2026-10-11', t.messages(report)[0])
 
     @patch.dict(t.os.environ, {'TELEGRAM_BOT_TOKEN': '123:super-secret'})
     @patch.object(t.time, 'sleep')

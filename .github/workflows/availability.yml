@@ -1,4 +1,4 @@
-name: 立山 10月10日 空床監控
+name: 立山 10月10-11日 空床監控
 on:
   workflow_dispatch:
     inputs:
@@ -45,9 +45,9 @@ jobs:
           python-version: '3.12'
           cache: pip
       - run: pip install -r requirements.txt
-      - name: 檢查 2026-10-10 空位
+      - name: 檢查 2026-10-10 與 2026-10-11 空位
         id: availability
-        run: python monitor.py --date 2026-10-10
+        run: python monitor.py --date 2026-10-10 --date 2026-10-11
       - name: Send vacancy or error directly to Telegram
         if: ${{ always() && !cancelled() }}
         env:

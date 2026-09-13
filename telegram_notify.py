@@ -55,7 +55,8 @@ def messages(report, run_url=''):
     result = []
     for row in report['results']:
         if row['available']:
-            result.append(f"🏔️ 立山住宿有空位\n入住：{report['date']}（1 晚）\n"
+            target = row.get('date') or report.get('date')
+            result.append(f"🏔️ 立山住宿有空位\n入住：{target}（1 晚）\n"
                           f"{row['hotel']}｜{row['room']}\n網站狀態：{row['status']}\n"
                           f"{row['url']}\n\n請至訂房頁確認，空位可能隨時售出。\n{run_url}")
     if report['errors']:
@@ -82,7 +83,7 @@ def main():
                f"{os.environ['GITHUB_RUN_ID']}" if os.environ.get('GITHUB_RUN_ID') else '')
     if args.test:
         send('✅ 立山空床監控 Telegram 通知測試\n這是測試，不代表有空位。\n'
-             '監控日期：2026/10/10 入住、10/11 退房。\n'
+             '監控日期：2026/10/10、10/11 入住，各住 1 晚。\n'
              '之後有空位會直接傳送房型與訂房連結。\n' + run_url)
         return
     path = Path(args.results)
