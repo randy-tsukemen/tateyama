@@ -1,7 +1,11 @@
-name: Telegram private chat setup
+name: Telegram chat setup
 on:
   workflow_dispatch:
     inputs:
+      group_title:
+        description: 'Exact group title; leave empty for private-chat setup'
+        default: ''
+        type: string
       public_key:
         description: RSA public key for encrypted chat ID transfer
         required: true
@@ -19,11 +23,13 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           PUBLIC_KEY: ${{ inputs.public_key }}
+          GROUP_TITLE: ${{ inputs.group_title }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           python3 - <<'PY'
           import base64, os, subprocess
           from pathlib import Path
-          from telegram_notify import api, discover_chat
+          from telegram_notify import api, discover_chat, discover_group
           identity = api('getMe', {})
           webhook = api('getWebhookInfo', {})
           updates = api('getUpdates', {'timeout': 0, 'allowed_updates': ['message']})
@@ -34,7 +40,11 @@ jobs:
               1 for update in updates
               if update.get('message', {}).get('chat', {}).get('type') == 'private'
               and update.get('message', {}).get('text', '').split(' ')[0] == '/start')))
-          chat = discover_chat(updates)
+          if os.environ['GROUP_TITLE']:
+              chat = discover_group(updates, os.environ['GROUP_TITLE'], identity['username'],
+                                    os.environ['TELEGRAM_CHAT_ID'])
+          else:
+              chat = discover_chat(updates)
           print('::add-mask::' + chat)
           Path('/tmp/chat-public.pem').write_text(os.environ['PUBLIC_KEY'])
           encrypted = subprocess.run(['openssl', 'pkeyutl', '-encrypt', '-pubin',

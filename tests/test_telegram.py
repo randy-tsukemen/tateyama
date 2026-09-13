@@ -4,6 +4,29 @@ import requests
 import telegram_notify as t
 
 class TelegramTests(unittest.TestCase):
+    def test_group_discovery_requires_title_command_and_owner(self):
+        good = {'message': {'text': '/start@bot', 'from': {'id': 123},
+                           'chat': {'id': -99, 'type': 'supergroup', 'title': 'Trip'}}}
+        self.assertEqual(t.discover_group([good, good], 'Trip', 'bot', '123'), '-99')
+        for title, bot, owner in [('Other', 'bot', '123'), ('Trip', 'other', '123'),
+                                  ('Trip', 'bot', '456')]:
+            with self.assertRaises(RuntimeError):
+                t.discover_group([good], title, bot, owner)
+
+    @patch.dict(t.os.environ, {'TELEGRAM_CHAT_ID': '123', 'TELEGRAM_GROUP_ID': '-99'})
+    @patch.object(t, 'api')
+    def test_both_destinations_are_attempted_on_private_failure(self, api):
+        api.side_effect = [RuntimeError('failed'), {'message_id': 1}]
+        with self.assertRaises(RuntimeError):
+            t.send('test')
+        self.assertEqual([c.args[1]['chat_id'] for c in api.call_args_list], ['123', '-99'])
+
+    @patch.dict(t.os.environ, {'TELEGRAM_CHAT_ID': '123', 'TELEGRAM_GROUP_ID': '123'})
+    @patch.object(t, 'api')
+    def test_duplicate_destination_only_sent_once(self, api):
+        t.send('test')
+        self.assertEqual(api.call_count, 1)
+
     def test_discover_only_unique_private_start(self):
         updates = [{'message': {'text': '/start', 'chat': {'id': 123, 'type': 'private'}}}]
         self.assertEqual(t.discover_chat(updates * 2), '123')

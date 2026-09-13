@@ -65,13 +65,39 @@ def messages(report, run_url=''):
     return result
 
 
+def discover_group(updates, title, username, owner_id):
+    ids = set()
+    for update in updates:
+        message = update.get('message', {})
+        chat = message.get('chat', {})
+        if (chat.get('type') in ('group', 'supergroup')
+                and chat.get('title') == title
+                and str(message.get('from', {}).get('id')) == str(owner_id)
+                and message.get('text', '').strip() == f'/start@{username}'):
+            ids.add(str(chat['id']))
+    if len(ids) != 1:
+        raise RuntimeError('Need one matching group command sent by the configured private-chat owner')
+    return ids.pop()
+
+
 def send(text):
-    chat = os.environ.get('TELEGRAM_CHAT_ID')
-    if not chat:
+    private = os.environ.get('TELEGRAM_CHAT_ID', '').strip()
+    group = os.environ.get('TELEGRAM_GROUP_ID', '').strip()
+    if not private:
         raise RuntimeError('Missing TELEGRAM_CHAT_ID secret')
-    api('sendMessage', {'chat_id': chat, 'text': text[:4000],
-                        'link_preview_options': {'is_disabled': True}})
-    print('Telegram accepted notification.')
+    failures = []
+    targets = [('private', private)]
+    if group and group != private:
+        targets.append(('group', group))
+    for label, chat in targets:
+        try:
+            api('sendMessage', {'chat_id': chat, 'text': text[:4000],
+                                'link_preview_options': {'is_disabled': True}})
+            print(f'Telegram accepted notification ({label}).')
+        except RuntimeError:
+            failures.append(label)
+    if failures:
+        raise RuntimeError('Telegram delivery unconfirmed for: ' + ', '.join(failures))
 
 
 def main():
