@@ -52,7 +52,9 @@ def parse_raicho(html, target):
         available = bool(count and int(count[1]) > 0 and anchor)
         if not available and mark != '×':
             raise ValueError(f'雷鳥莊：無法識別空位狀態 {mark!r}')
-        result.append(dict(hotel='雷鳥莊', room=label.get_text(strip=True),
+        room = label.get_text(strip=True)
+        result.append(dict(hotel='雷鳥莊', room=room,
+                           room_display='個室（非單人）' if room == '個室' else room,
                            available=available, status=mark,
                            url=urljoin(RAICHO, anchor['href']) if available else RAICHO))
     return result
@@ -150,11 +152,12 @@ def main():
     title = '發現空位' if code == 1 else '監控異常' if code == 2 else '目前沒有空位'
     date_label = '、'.join(map(str, targets))
     lines = [f'# {date_label} 立山住宿：{title}', f'檢查時間：{now.isoformat()}',
-             '1 位成人，入住 1 晚。雷鳥莊包含所有房型，個室仍需確認人數限制。', '']
+             '各住 1 晚。みくりが池温泉查詢 1 位成人；雷鳥莊包含非單人個室，依網站房型庫存通知。', '']
     for r in results:
-        lines.append(f"- {r['date']} {'有空位' if r['available'] else '無可訂空位'}：{r['hotel']} / {r['room']} — {r['status']} [訂房頁]({r['url']})")
+        room_display = r.get('room_display', r['room'])
+        lines.append(f"- {r['date']} {'有空位' if r['available'] else '無可訂空位'}：{r['hotel']} / {room_display} — {r['status']} [訂房頁]({r['url']})")
         if r['available']:
-            print(f"::error title=發現空位::{r['date']} {r['hotel']} {r['room']} {r['status']} {r['url']}")
+            print(f"::error title=發現空位::{r['date']} {r['hotel']} {room_display} {r['status']} {r['url']}")
     for error in errors:
         lines.append(f'- 監控異常：{error}')
         print(f'::error title=監控異常（非空位通知）::{error}')
@@ -162,10 +165,12 @@ def main():
     print(report)
     Path('results.json').write_text(json.dumps(dict(
         dates=list(map(str, targets)), queried_at=now.isoformat(),
-        query={'adults': 1, 'nights': 1, 'hotels': ['雷鳥莊', 'みくりが池温泉']},
+        query={'nights': 1, 'hotels': {
+            '雷鳥莊': {'room_types': 'all', 'include_non_single_private_room': True},
+            'みくりが池温泉': {'adults': 1}}},
         results=results, errors=errors,
         limitations=['空位是查詢當下的網站狀態，不代表保留或完成訂房。',
-                     '雷鳥莊個室及雙人房仍需在訂房頁確認 1 人入住限制。']),
+                     '雷鳥莊依網站房型庫存通知；非單人個室與其他房型的人數、價格需在訂房頁確認。']),
         ensure_ascii=False, indent=2), encoding='utf-8')
     if os.environ.get('GITHUB_STEP_SUMMARY'):
         with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as f:

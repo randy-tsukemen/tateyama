@@ -57,7 +57,7 @@ def messages(report, run_url=''):
         if row['available']:
             target = row.get('date') or report.get('date')
             result.append(f"🏔️ 立山住宿有空位\n入住：{target}（1 晚）\n"
-                          f"{row['hotel']}｜{row['room']}\n網站狀態：{row['status']}\n"
+                          f"{row['hotel']}｜{row.get('room_display', row['room'])}\n網站狀態：{row['status']}\n"
                           f"{row['url']}\n\n請至訂房頁確認，空位可能隨時售出。\n{run_url}")
     if report['errors']:
         result.append('⚠️ 立山監控異常（不是空位通知）\n' +
