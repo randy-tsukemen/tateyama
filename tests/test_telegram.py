@@ -4,6 +4,28 @@ import requests
 import telegram_notify as t
 
 class TelegramTests(unittest.TestCase):
+    @patch.dict(t.os.environ, {'TELEGRAM_BOT_TOKEN': '123:secret'})
+    @patch.object(t.requests, 'post')
+    def test_migrated_group_retried_with_new_id(self, post):
+        post.side_effect = [Mock(status_code=400, json=lambda: {
+            'parameters': {'migrate_to_chat_id': -10099}}),
+            Mock(status_code=200, json=lambda: {'ok': True, 'result': {'message_id': 1}})]
+        original = {'chat_id': '-99', 'text': 'test'}
+        self.assertEqual(t.api('sendMessage', original), {'message_id': 1})
+        self.assertEqual(post.call_args.kwargs['json']['chat_id'], '-10099')
+        self.assertEqual(original['chat_id'], '-99')
+
+    @patch.dict(t.os.environ, {'TELEGRAM_BOT_TOKEN': '123:secret'})
+    @patch.object(t.requests, 'post')
+    def test_migration_is_bounded_and_error_is_redacted(self, post):
+        post.return_value = Mock(status_code=400, json=lambda: {
+            'parameters': {'migrate_to_chat_id': -10099},
+            'description': 'chat not found secret-details'})
+        with self.assertRaisesRegex(RuntimeError, 'chat not found') as error:
+            t.api('sendMessage', {'chat_id': '-99'})
+        self.assertEqual(post.call_count, 2)
+        self.assertNotIn('secret-details', str(error.exception))
+
     def test_group_discovery_requires_title_command_and_owner(self):
         good = {'message': {'text': '/start@bot', 'from': {'id': 123},
                            'chat': {'id': -99, 'type': 'supergroup', 'title': 'Trip'}}}

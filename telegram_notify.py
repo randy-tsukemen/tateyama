@@ -8,7 +8,7 @@ import time
 import requests
 
 
-def api(method, payload, attempts=3):
+def api(method, payload, attempts=3, allow_migration=True):
     token = os.environ.get('TELEGRAM_BOT_TOKEN', '').strip()
     if not token:
         raise RuntimeError('Missing TELEGRAM_BOT_TOKEN secret')
@@ -28,10 +28,24 @@ def api(method, payload, attempts=3):
             status = response.status_code
             if status == 200 and body.get('ok'):
                 return body['result']
+            migrated = body.get('parameters', {}).get('migrate_to_chat_id')
+            if (status == 400 and allow_migration and method == 'sendMessage'
+                    and isinstance(migrated, int) and migrated < 0):
+                print('Telegram group migrated to supergroup; retrying with updated destination.')
+                return api(method, {**payload, 'chat_id': str(migrated)},
+                           attempts=attempts, allow_migration=False)
             if status == 429:
                 delay = max(delay, int(body.get('parameters', {}).get('retry_after', 1)))
             elif 400 <= status < 500:
-                raise RuntimeError(f'Telegram rejected request (HTTP {status}); check secrets and Bot Start/block status')
+                # Only predefined diagnostic labels may enter public Actions logs.
+                description = str(body.get('description', '')).lower()
+                reason = 'check chat ID and bot permissions'
+                for phrase in ('chat not found', 'bot was kicked', 'bot is not a member',
+                               'not enough rights', 'bot was blocked', 'group chat was deleted'):
+                    if phrase in description:
+                        reason = phrase
+                        break
+                raise RuntimeError(f'Telegram rejected request (HTTP {status}; {reason})')
         if attempt + 1 < attempts and delay <= 30:
             time.sleep(delay)
         else:
@@ -94,8 +108,8 @@ def send(text):
             api('sendMessage', {'chat_id': chat, 'text': text[:4000],
                                 'link_preview_options': {'is_disabled': True}})
             print(f'Telegram accepted notification ({label}).')
-        except RuntimeError:
-            failures.append(label)
+        except RuntimeError as exc:
+            failures.append(f'{label}: {exc}')
     if failures:
         raise RuntimeError('Telegram delivery unconfirmed for: ' + ', '.join(failures))
 
