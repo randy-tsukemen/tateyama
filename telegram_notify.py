@@ -123,7 +123,7 @@ def main():
                f"{os.environ['GITHUB_RUN_ID']}" if os.environ.get('GITHUB_RUN_ID') else '')
     if args.test:
         send('✅ 立山空床監控 Telegram 通知測試\n這是測試，不代表有空位。\n'
-             '監控日期：2026/10/10、10/11 入住，各住 1 晚。\n'
+             '監控日期：2026/10/11 入住，住 1 晚。\n'
              '之後有空位會直接傳送房型與訂房連結。\n' + run_url)
         return
     path = Path(args.results)

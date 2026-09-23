@@ -1,8 +1,7 @@
 # 立山空床監控
 
-監控以下兩個入住日，皆為 **入住 1 晚**：
+監控以下入住日，**入住 1 晚**：
 
-- 2026-10-10 入住、2026-10-11 退房。
 - 2026-10-11 入住、2026-10-12 退房。
 
 - 雷鳥莊：日曆全部五種房型，包含「個室（非單人）」與「個室1名利用」，各自獨立判斷。
@@ -65,7 +64,7 @@ Actions 頁面可手動 Run workflow，每次摘要包含房型、狀態及訂�
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 .venv/bin/python -m unittest discover -s tests -v
-.venv/bin/python monitor.py --date 2026-10-10 --date 2026-10-11
+.venv/bin/python monitor.py --date 2026-10-11
 ```
 
 使用 requests（逾時及最多兩次重試）與 BeautifulSoup，只讀取四個公開訂房頁面，不提交預約。

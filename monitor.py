@@ -18,7 +18,7 @@ RAICHO = 'https://www.tenawan.ne.jp/lodgment/rec/007/602/pcr.asp'
 MIKURI = 'https://d-reserve.jp/GSEA002F01400/GSEA002A01'
 PLANS = [('PL00008095', 'RM00003893'), ('PL00008151', 'RM00003906'),
          ('PL00044720', 'RM00013017')]
-DEFAULT_DATES = (date(2026, 10, 10), date(2026, 10, 11))
+DEFAULT_DATES = (date(2026, 10, 11),)
 
 
 def mikuri_url(target, plan, room):
