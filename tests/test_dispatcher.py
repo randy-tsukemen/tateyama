@@ -9,8 +9,8 @@ spec.loader.exec_module(d)
 
 class DispatcherTests(unittest.TestCase):
     def test_skips_missed_ticks(self):
-        self.assertEqual(d.next_tick(100, 800), 1100)
-        self.assertEqual(d.next_tick(100, 101), 401)
+        self.assertEqual(d.next_tick(100, 800), 920)
+        self.assertEqual(d.next_tick(100, 101), 221)
 
     def test_disable_stops_during_wait(self):
         times = iter([100, 100, 100, 130])
@@ -32,7 +32,7 @@ class DispatcherTests(unittest.TestCase):
             d.main()
         self.assertEqual(send.call_args_list[0].args, ('owner/repo', d.MONITOR))
         self.assertEqual(send.call_args_list[1].args,
-                         ('owner/repo', d.CONTROLLER, {'next_at': '400.0', 'cycles': '12'}))
+                         ('owner/repo', d.CONTROLLER, {'next_at': '220.0', 'cycles': '12'}))
 
     def test_monitor_failure_does_not_get_silently_ignored(self):
         with patch.object(d.subprocess, 'run') as run:

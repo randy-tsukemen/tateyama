@@ -6,7 +6,7 @@ import os
 import subprocess
 import time
 
-INTERVAL = 300
+INTERVAL = 120
 # Stop at midnight JST after the last requested check-in day (2026-10-12 00:00 JST).
 STOP_AT = datetime(2026, 10, 11, 15, tzinfo=timezone.utc).timestamp()
 CONTROLLER = 'dispatcher.yml'
