@@ -1,4 +1,4 @@
-name: 立山 10月11日 空床監控
+name: 立山 10月11日 住宿與車票監控
 on:
   workflow_dispatch:
     inputs:
@@ -36,7 +36,7 @@ jobs:
           exit 1
   check:
     if: ${{ !inputs.test_notification }}
-    name: 檢查空床（發現空位或監控異常時失敗）
+    name: 檢查住宿與車票（發現空位或監控異常時失敗）
     runs-on: ubuntu-latest
     timeout-minutes: 6
     steps:
@@ -48,7 +48,7 @@ jobs:
       - run: pip install -r requirements.txt
       - name: 檢查 2026-10-11 空位
         id: availability
-        run: python monitor.py --date 2026-10-11
+        run: python monitor.py --date 2026-10-11 --tickets
       - name: Send vacancy or error directly to Telegram
         if: ${{ always() && !cancelled() }}
         env:

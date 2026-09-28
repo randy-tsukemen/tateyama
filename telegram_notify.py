@@ -67,12 +67,21 @@ def discover_chat(updates):
 
 def messages(report, run_url=''):
     result = []
+    ticket_groups = {}
     for row in report['results']:
         if row['available']:
+            if row.get('kind') == 'ticket':
+                ticket_groups.setdefault((row['date'], row['room']), []).append(row)
+                continue
             target = row.get('date') or report.get('date')
             result.append(f"🏔️ 立山住宿有空位\n入住：{target}（1 晚）\n"
                           f"{row['hotel']}｜{row.get('room_display', row['room'])}\n網站狀態：{row['status']}\n"
                           f"{row['url']}\n\n請至訂房頁確認，空位可能隨時售出。\n{run_url}")
+    for (target, product), rows in ticket_groups.items():
+        departures = '、'.join(sorted(row['departure'] for row in rows))
+        result.append(f'🎫 立山車票有空位\n乘車日期：{target}\n{product}\n'
+                      f'立山駅（Tateyama）出發：{departures} JST\n'
+                      f"{rows[0]['url']}\n\n請選擇上述商品、立山駅出發及日期確認預約；空位可能隨時售出。\n{run_url}")
     if report['errors']:
         result.append('⚠️ 立山監控異常（不是空位通知）\n' +
                       '\n'.join(report['errors'])[:2500] + '\n' + run_url)

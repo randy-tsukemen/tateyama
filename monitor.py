@@ -134,6 +134,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--date', action='append', dest='dates', type=date.fromisoformat,
                         help='check-in date; repeat to monitor more than one date')
+    parser.add_argument('--tickets', action='store_true',
+                        help='also check October 11 Tateyama tickets departing before 10:00 JST')
     args = parser.parse_args()
     targets = sorted(set(args.dates or DEFAULT_DATES))
     now = datetime.now(ZoneInfo('Asia/Tokyo'))
@@ -148,14 +150,23 @@ def main():
         total=2, backoff_factor=2, status_forcelist=[429, 500, 502, 503, 504],
         allowed_methods=['GET'])))
     results, errors = check_dates(session, targets)
+    if args.tickets:
+        from ticket_monitor import check_tickets
+        ticket_results, ticket_errors = check_tickets(session, now)
+        results.extend(ticket_results)
+        errors.extend(ticket_errors)
     code = exit_code(results, errors)
     title = '發現空位' if code == 1 else '監控異常' if code == 2 else '目前沒有空位'
     date_label = '、'.join(map(str, targets))
-    lines = [f'# {date_label} 立山住宿：{title}', f'檢查時間：{now.isoformat()}',
+    lines = [f'# {date_label} 立山空位監控：{title}', f'檢查時間：{now.isoformat()}',
              '各住 1 晚。みくりが池温泉查詢 1 位成人；雷鳥莊包含非單人個室，依網站房型庫存通知。', '']
+    if args.tickets:
+        lines.append('車票：2026-10-11 立山駅出發，10:00 JST 前（不含 10:00）；Standard WEB Ticket、室堂直行巴士。')
     for r in results:
         room_display = r.get('room_display', r['room'])
-        lines.append(f"- {r['date']} {'有空位' if r['available'] else '無可訂空位'}：{r['hotel']} / {room_display} — {r['status']} [訂房頁]({r['url']})")
+        if r.get('kind') == 'ticket':
+            room_display += f" / Tateyama {r['departure']} JST 出發"
+        lines.append(f"- {r['date']} {'有空位' if r['available'] else '無可訂空位'}：{r['hotel']} / {room_display} — {r['status']} [預約頁]({r['url']})")
         if r['available']:
             print(f"::error title=發現空位::{r['date']} {r['hotel']} {room_display} {r['status']} {r['url']}")
     for error in errors:
@@ -167,7 +178,9 @@ def main():
         dates=list(map(str, targets)), queried_at=now.isoformat(),
         query={'nights': 1, 'hotels': {
             '雷鳥莊': {'room_types': 'all', 'include_non_single_private_room': True},
-            'みくりが池温泉': {'adults': 1}}},
+            'みくりが池温泉': {'adults': 1}},
+            'tickets': {'enabled': args.tickets, 'date': '2026-10-11',
+                        'origin': 'Tateyama', 'before': '10:00', 'timezone': 'Asia/Tokyo'}},
         results=results, errors=errors,
         limitations=['空位是查詢當下的網站狀態，不代表保留或完成訂房。',
                      '雷鳥莊依網站房型庫存通知；非單人個室與其他房型的人數、價格需在訂房頁確認。']),
