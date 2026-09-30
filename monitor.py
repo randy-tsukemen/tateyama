@@ -106,18 +106,19 @@ def add_date(rows, target):
     return rows
 
 
-def check_dates(session, targets):
+def check_dates(session, targets, raicho_only_dates=()):
     """Return normalized results and errors for every active target date."""
     results, errors = [], []
+    raicho_targets = sorted(set(targets) | set(raicho_only_dates))
     try:
         response = session.get(RAICHO, timeout=(15, 45))
         response.raise_for_status()
         raicho_html = response.content.decode('cp932')
     except Exception as exc:
-        for target in targets:
+        for target in raicho_targets:
             errors.append(f'{target} 雷鳥莊：{exc}')
     else:
-        for target in targets:
+        for target in raicho_targets:
             try:
                 results.extend(add_date(parse_raicho(raicho_html, target), target))
             except Exception as exc:
@@ -139,13 +140,17 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--date', action='append', dest='dates', type=date.fromisoformat,
                         help='check-in date; repeat to monitor more than one date')
+    parser.add_argument('--raicho-date', action='append', type=date.fromisoformat,
+                        default=[], help='additional check-in date for Raichoso only')
     parser.add_argument('--tickets', action='store_true',
                         help='also check October 11 Tateyama tickets departing before 10:00 JST')
     args = parser.parse_args()
     targets = sorted(set(args.dates or DEFAULT_DATES))
     now = datetime.now(ZoneInfo('Asia/Tokyo'))
     targets = [target for target in targets if now.date() <= target]
-    if not targets:
+    raicho_only_dates = [d for d in args.raicho_date if now.date() <= d]
+    all_dates = sorted(set(targets) | set(raicho_only_dates))
+    if not all_dates:
         print('所有入住日期皆已過，停止查詢。請停用 workflow 以停止排程。')
         return 0
     session = requests.Session()
@@ -154,7 +159,7 @@ def main():
     session.mount('https://', HTTPAdapter(max_retries=Retry(
         total=2, backoff_factor=2, status_forcelist=[429, 500, 502, 503, 504],
         allowed_methods=['GET'])))
-    results, errors = check_dates(session, targets)
+    results, errors = check_dates(session, targets, raicho_only_dates)
     if args.tickets:
         from ticket_monitor import check_tickets
         ticket_results, ticket_errors = check_tickets(session, now)
@@ -162,7 +167,7 @@ def main():
         errors.extend(ticket_errors)
     code = exit_code(results, errors)
     title = '發現空位' if code == 1 else '監控異常' if code == 2 else '目前沒有空位'
-    date_label = '、'.join(map(str, targets))
+    date_label = '、'.join(map(str, all_dates))
     lines = [f'# {date_label} 立山空位監控：{title}', f'檢查時間：{now.isoformat()}',
              '各住 1 晚。みくりが池温泉查詢 1 位成人；雷鳥莊僅監控男女別、男女混合相部屋，排除個室及雙人床鋪。', '']
     if args.tickets:
@@ -180,11 +185,11 @@ def main():
     report = '\n'.join(lines) + '\n'
     print(report)
     Path('results.json').write_text(json.dumps(dict(
-        dates=list(map(str, targets)), queried_at=now.isoformat(),
+        dates=list(map(str, all_dates)), queried_at=now.isoformat(),
         query={'nights': 1, 'hotels': {
             '雷鳥莊': {'room_types': ['男女別相部屋', '男女混合相部屋'],
-                      'exclude_private_and_double': True},
-            'みくりが池温泉': {'adults': 1}},
+                      'exclude_private_and_double': True, 'dates': list(map(str, all_dates))},
+            'みくりが池温泉': {'adults': 1, 'dates': list(map(str, targets))}},
             'tickets': {'enabled': args.tickets, 'date': '2026-10-11',
                         'origin': 'Tateyama', 'before': '10:00', 'timezone': 'Asia/Tokyo'}},
         results=results, errors=errors,

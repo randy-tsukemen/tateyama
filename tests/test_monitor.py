@@ -74,6 +74,15 @@ class MonitorTests(unittest.TestCase):
         self.assertEqual(session.urls.count(RAICHO), 1)
         self.assertEqual(len(session.urls), 7)
 
+    def test_extra_raicho_date_does_not_add_mikuri_queries(self):
+        session = Session()
+        results, errors = check_dates(session, [TARGET + timedelta(days=1)], [TARGET])
+        self.assertEqual(errors, [])
+        self.assertEqual(len(session.urls), 4)
+        extra = [r for r in results if r['date'] == str(TARGET)]
+        self.assertTrue(extra)
+        self.assertEqual({r['hotel'] for r in extra}, {'雷鳥莊'})
+
     def test_mikuri_statuses(self):
         for mark, expected in [('○', True), ('△', True), ('×', False), ('－', False)]:
             with self.subTest(mark=mark):
