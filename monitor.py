@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import re
 import sys
+import unicodedata
 from urllib.parse import urlencode, urljoin
 from zoneinfo import ZoneInfo
 
@@ -46,6 +47,10 @@ def parse_raicho(html, target):
         raise ValueError('雷鳥莊：房型日曆格式改變')
     result = []
     for label, cell in zip(labels, cells):
+        room = label.get_text(strip=True)
+        normalized_room = unicodedata.normalize('NFKC', room)
+        if '個室' in normalized_room or 'ダブル' in normalized_room:
+            continue
         mark = cell.get_text(strip=True)
         anchor = cell.find('a', href=True)
         count = re.fullmatch(r'(\d+)室', mark)
@@ -159,7 +164,7 @@ def main():
     title = '發現空位' if code == 1 else '監控異常' if code == 2 else '目前沒有空位'
     date_label = '、'.join(map(str, targets))
     lines = [f'# {date_label} 立山空位監控：{title}', f'檢查時間：{now.isoformat()}',
-             '各住 1 晚。みくりが池温泉查詢 1 位成人；雷鳥莊包含非單人個室，依網站房型庫存通知。', '']
+             '各住 1 晚。みくりが池温泉查詢 1 位成人；雷鳥莊僅監控男女別、男女混合相部屋，排除個室及雙人床鋪。', '']
     if args.tickets:
         lines.append('車票：2026-10-11 立山駅出發，10:00 JST 前（不含 10:00）；Standard WEB Ticket、室堂直行巴士。')
     for r in results:
@@ -177,13 +182,14 @@ def main():
     Path('results.json').write_text(json.dumps(dict(
         dates=list(map(str, targets)), queried_at=now.isoformat(),
         query={'nights': 1, 'hotels': {
-            '雷鳥莊': {'room_types': 'all', 'include_non_single_private_room': True},
+            '雷鳥莊': {'room_types': ['男女別相部屋', '男女混合相部屋'],
+                      'exclude_private_and_double': True},
             'みくりが池温泉': {'adults': 1}},
             'tickets': {'enabled': args.tickets, 'date': '2026-10-11',
                         'origin': 'Tateyama', 'before': '10:00', 'timezone': 'Asia/Tokyo'}},
         results=results, errors=errors,
         limitations=['空位是查詢當下的網站狀態，不代表保留或完成訂房。',
-                     '雷鳥莊依網站房型庫存通知；非單人個室與其他房型的人數、價格需在訂房頁確認。']),
+                     '雷鳥莊排除個室及雙人床鋪；相部屋的人數、價格需在訂房頁確認。']),
         ensure_ascii=False, indent=2), encoding='utf-8')
     if os.environ.get('GITHUB_STEP_SUMMARY'):
         with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as f:

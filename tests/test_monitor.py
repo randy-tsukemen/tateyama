@@ -54,17 +54,15 @@ class Session:
 
 
 class MonitorTests(unittest.TestCase):
-    def test_non_single_private_room_alerts_when_single_is_full(self):
+    def test_private_and_double_rooms_never_alert(self):
         from telegram_notify import messages
-        html = raicho('<a href="reserve.asp?date=20261010">2室</a>')
-        html = html.replace('房型2', '個室').replace('房型4', '個室1名利用')
-        rows = parse_raicho(html, TARGET)
-        self.assertFalse(next(r for r in rows if r['room'] == '個室1名利用')['available'])
-        self.assertEqual(exit_code(rows, []), 1)
-        notifications = messages({'date': str(TARGET), 'results': rows, 'errors': []})
-        self.assertEqual(len(notifications), 1)
-        self.assertIn('個室（非單人）', notifications[0])
-        self.assertIn('reserve.asp?date=20261010', notifications[0])
+        for excluded in ('個室', '個室1名利用', '相部屋ﾀﾞﾌﾞﾙ', '相部屋ダブル'):
+            html = raicho('<a href="reserve.asp?date=20261010">2室</a>')
+            html = html.replace('房型2', excluded)
+            rows = parse_raicho(html, TARGET)
+            self.assertNotIn(excluded, [r['room'] for r in rows])
+            self.assertEqual(exit_code(rows, []), 0)
+            self.assertEqual(messages({'date': str(TARGET), 'results': rows, 'errors': []}), [])
 
     def test_two_dates_are_checked_with_one_raicho_request(self):
         session = Session()
