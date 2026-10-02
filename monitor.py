@@ -144,7 +144,11 @@ def main():
                         default=[], help='additional check-in date for Raichoso only')
     parser.add_argument('--tickets', action='store_true',
                         help='also check October 11 Tateyama tickets departing before 10:00 JST')
+    parser.add_argument('--tickets-only', action='store_true',
+                        help='check tickets without querying lodging')
     args = parser.parse_args()
+    if args.tickets_only:
+        args.tickets = True
     targets = sorted(set(args.dates or DEFAULT_DATES))
     now = datetime.now(ZoneInfo('Asia/Tokyo'))
     targets = [target for target in targets if now.date() <= target]
@@ -159,7 +163,7 @@ def main():
     session.mount('https://', HTTPAdapter(max_retries=Retry(
         total=2, backoff_factor=2, status_forcelist=[429, 500, 502, 503, 504],
         allowed_methods=['GET'])))
-    results, errors = check_dates(session, targets, raicho_only_dates)
+    results, errors = ([], []) if args.tickets_only else check_dates(session, targets, raicho_only_dates)
     if args.tickets:
         from ticket_monitor import check_tickets
         ticket_results, ticket_errors = check_tickets(session, now)
@@ -170,6 +174,8 @@ def main():
     date_label = '、'.join(map(str, all_dates))
     lines = [f'# {date_label} 立山空位監控：{title}', f'檢查時間：{now.isoformat()}',
              '各住 1 晚。みくりが池温泉查詢 1 位成人；雷鳥莊僅監控男女別、男女混合相部屋，排除個室及雙人床鋪。', '']
+    if args.tickets_only:
+        lines = lines[:2]
     if args.tickets:
         lines.append('車票：2026-10-11 立山駅出發，10:00 JST 前（不含 10:00）；Standard WEB Ticket、室堂直行巴士。')
     for r in results:
@@ -186,7 +192,7 @@ def main():
     print(report)
     Path('results.json').write_text(json.dumps(dict(
         dates=list(map(str, all_dates)), queried_at=now.isoformat(),
-        query={'nights': 1, 'hotels': {
+        query={'nights': 1, 'hotels': {} if args.tickets_only else {
             '雷鳥莊': {'room_types': ['男女別相部屋', '男女混合相部屋'],
                       'exclude_private_and_double': True, 'dates': list(map(str, all_dates))},
             'みくりが池温泉': {'adults': 1, 'dates': list(map(str, targets))}},

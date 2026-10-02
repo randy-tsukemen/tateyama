@@ -1,5 +1,5 @@
-name: 立山監控兩分鐘觸發器
-run-name: 兩分鐘觸發器 · ${{ github.event_name }}
+name: 立山監控住宿五分鐘觸發器
+run-name: 住宿五分鐘觸發器 · ${{ github.event_name }}
 on:
   workflow_dispatch:
     inputs:
@@ -30,7 +30,7 @@ jobs:
     timeout-minutes: 65
     steps:
       - uses: actions/checkout@v4
-      - name: Dispatch monitor every two minutes and hand off
+      - name: Dispatch monitor every five minutes and hand off
         env:
           GH_TOKEN: ${{ github.token }}
           DISPATCH_CYCLES: ${{ inputs.cycles || '12' }}

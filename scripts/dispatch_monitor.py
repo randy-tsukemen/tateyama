@@ -6,11 +6,11 @@ import os
 import subprocess
 import time
 
-INTERVAL = 120
+INTERVAL = int(os.environ.get('DISPATCH_INTERVAL', '300'))
 # Stop at midnight JST after the last requested check-in day (2026-10-12 00:00 JST).
 STOP_AT = datetime(2026, 10, 11, 15, tzinfo=timezone.utc).timestamp()
-CONTROLLER = 'dispatcher.yml'
-MONITOR = 'availability.yml'
+CONTROLLER = os.environ.get('CONTROLLER_WORKFLOW', 'dispatcher.yml')
+MONITOR = os.environ.get('MONITOR_WORKFLOW', 'availability.yml')
 
 
 def api(path, payload=None):

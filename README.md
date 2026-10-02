@@ -4,7 +4,7 @@
 
 - Standard WEB Ticket（スタンダード WEBきっぷ）。
 - Murodo Direct Bus (Oct 10–11)（室堂直行バス）。
-- 與住宿共用每兩分鐘 GitHub Action 及現有 Telegram 通知，任一班次有空位便通知。
+- 每一分鐘由獨立 GitHub Action 檢查，沿用現有 Telegram 通知，任一班次有空位便通知。
   同商品的可用出發時刻合併一則訊息，每次查詢仍有空位會重複通知。
 - 讀取官網公開時刻表 API，不登入、不建立預約。通知代表網站顯示有席位，沒有保留座位。
   商品代碼與名稱、方向、日期、時刻及狀態均核對；格式改變或讀取失敗回報異常。
@@ -20,21 +20,23 @@
   排除「個室」、「個室1名利用」及「相部屋ﾀﾞﾌﾞﾙ」（雙人床鋪），這些房型有空位也不通知。
 - みくりが池温泉：1 位成人，男女共用 6 人相部屋、8 人上下舖相部屋、官網限定 4 人相部屋。
 
-## 兩分鐘觸發器
+## 住宿五分鐘、車票一分鐘觸發器
 
-`dispatcher.yml` 在 GitHub-hosted runner 內每隔 120 秒呼叫 `availability.yml` 的
-`workflow_dispatch` API。使用 GitHub 提供的短期 `GITHUB_TOKEN`（actions: write），不存個人 Token。
+`dispatcher.yml` 在 GitHub-hosted runner 內每隔 300 秒呼叫 `availability.yml` 的
+`workflow_dispatch` API。
+`ticket-dispatcher.yml` 每隔 60 秒呼叫 `tickets.yml`，只查車票。
+兩組使用獨立併發群組，住宿查詢不阻塞車票。啟停時請分別操作兩組觸發器與監控 workflow。使用 GitHub 提供的短期 `GITHUB_TOKEN`（actions: write），不存個人 Token。
 每輪最多檢查 12 次，接著啟動下一輪，傳遞下次執行時間。併發群組保證只有一個觸發器正在執行。
 監控失敗不會終止觸發器，因此有空位時仍持續查詢並產生失敗紀錄。
 
-- 啟動：Actions →「立山監控兩分鐘觸發器」→ Run workflow，使用預設輸入。
+- 啟動：Actions →「立山監控住宿五分鐘觸發器」→ Run workflow，使用預設輸入。
 - 停止：**先停用觸發器 workflow，再取消它正在執行及排隊中的 runs**。程式每 30 秒檢查是否停用；
   也可以停用監控 workflow，觸發器在下一次檢查後停止接續。
 - 重新啟動：啟用兩個 workflow，再手動啟動觸發器一次。
 - 到期：2026-10-12 00:00 JST 起不再 dispatch／接續。建議同時停用觸發器，以停止每小時備援 cron。
 - 原監控已移除 cron。觸發器保留每小時第 17 分鐘的 cron，僅用於中斷後的盡力恢復。
   GitHub cron 仍可能延遲，所以 runner 取消、平台故障或接續 API 失敗時，不保證能即時恢復。
-- API 請求每兩分鐘送出；runner 排隊、接續及請求時間會讓實際開始時間稍晚。跳過錯過的時段，不密集補跑。
+- API 請求每五分鐘送出；runner 排隊、接續及請求時間會讓實際開始時間稍晚。跳過錯過的時段，不密集補跑。
 - `next_at` 是接續用的 Unix timestamp；一般手動啟動請留空。`cycles` 僅用於控制每輪長度。
 
 有空位以 exit code 1 讓監控失敗；網站讀取異常以 exit code 2 失敗，摘要明確區分。
@@ -68,7 +70,7 @@ Actions 頁面可手動 Run workflow，每次摘要包含房型、狀態及訂�
 請確認已 Watch 此儲存庫並開啟 Actions Email。測試失敗只證明流程成立，不證明信件已送達。
 
 目前儲存庫公開，使用標準 `ubuntu-latest` GitHub-hosted runner，不消耗私人儲存庫的 Actions 分鐘額度。
-每天約 720 次監控，另有持續運作的觸發器 runner。若未來改回私人儲存庫，請重新確認 Actions 額度。
+每天約 288 次住宿監控及 1,440 次車票監控，另有持續運作的觸發器 runner。若未來改回私人儲存庫，請重新確認 Actions 額度。
 
 ## 本機執行
 
