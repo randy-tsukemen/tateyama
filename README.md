@@ -1,5 +1,36 @@
 # 立山住宿與車票監控
 
+## PokéPark 精英票：Mac 本機監控
+
+`pokepark_monitor.py` 使用獨立 Chrome profile，每 120 秒開始一輪查詢，
+自動跟隨官網日曆至最後一個可查月份，涵蓋所有開放販售日期。
+日曆有庫存只代表候選日期，必須再核對當日「エリートトレーナーズパス」
+票種代碼、可選購狀態及 ○／△ 標記，才會通知。不登入、不購票、不保留票券。
+
+- 精英票首次有票、或確認售罄後再次有票時通知；持續有票不重複洗版。
+- 查詢異常保留前次狀態，不當作售罄；首次異常及恢復時各提醒一次。
+- Telegram 透過獨立 `pokepark-notify.yml` 轉送，僅使用既有私人 Secret，
+  並用 Telegram `getChat` 確認為私人對話。程式不讀取群組 ID。
+- 官網查詢在 Mac 執行；GitHub 只負責通知，因此送達另有 Actions 排隊延遲。
+- Chrome profile、狀態、最新結果及輪替紀錄保存在
+  `~/Library/Application Support/PokeParkMonitor/`，不納入 Git。
+- 使用者登入後 launchd 自動啟動；Mac 必須保持開機、不休眠及網路連線。
+  不會自動修改電源設定。驗證頁需要人工處理，不繞過驗證。
+- 關閉專用 Chrome 會由服務重新啟動；正式停止請用下面的 stop。
+  完全停機、休眠或網路中斷時，無法即時檢查或送出異常通知。
+- 每輪若超過 120 秒，不並行、不補跑；較多日期、慢速網站或通知排隊可能延長間隔。
+
+```sh
+.venv/bin/pip install -r requirements-pokepark.txt
+.venv/bin/python pokepark_monitor.py --once  # 只查詢，不通知
+.venv/bin/python scripts/pokepark_service.py start
+.venv/bin/python scripts/pokepark_service.py status
+.venv/bin/python scripts/pokepark_service.py stop  # 同時停用登入自動啟動
+```
+
+本機執行需要已登入的 GitHub CLI，以及 `/Applications/Google Chrome.app`。
+通知不會將 Telegram Token 下載到 Mac。舊立山工作流程仍維持停用。
+
 車票監控：**2026-10-11，立山駅（Tateyama）出發，10:00 JST 前（不含 10:00）**。
 
 - Standard WEB Ticket（スタンダード WEBきっぷ）。

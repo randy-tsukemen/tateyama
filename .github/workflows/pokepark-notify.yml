@@ -1,0 +1,26 @@
+name: PokéPark private Telegram relay
+run-name: PokePark private · ${{ inputs.notification_id }}
+on:
+  workflow_dispatch:
+    inputs:
+      notification_id:
+        required: true
+        type: string
+      payload:
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install -r requirements.txt
+      - name: Send only to verified private chat
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          POKEPARK_PAYLOAD: ${{ inputs.payload }}
+        run: python pokepark_notify.py
