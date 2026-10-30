@@ -1,0 +1,29 @@
+name: PokéPark connection check
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install -r requirements.txt
+      - name: Check public calendar access (no notifications)
+        run: |
+          python - <<'PY'
+          from datetime import datetime
+          from zoneinfo import ZoneInfo
+          import requests
+          month = datetime.now(ZoneInfo('Asia/Tokyo')).strftime('%Y-%m')
+          r = requests.get('https://www.pokepark-kanto.co.jp/ppark/ticket/dateSelect/select',
+                           params={'yearMonth': month, 'isScheduleRequest': 0}, timeout=30)
+          print('HTTP status:', r.status_code)
+          print('Content type:', r.headers.get('content-type'))
+          if r.status_code != 200 or 'application/json' not in r.headers.get('content-type', ''):
+              raise SystemExit('Public calendar unavailable to cloud runner; monitoring NOT started.')
+          data = r.json()
+          print('Result:', data.get('result'))
+          print('Calendar days:', len(data.get('dates', [])))
+          PY
